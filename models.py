@@ -4,24 +4,21 @@ Models for default project
 """
 import datetime
 
-from sqlalchemy.orm import relationship, backref
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import (Column, Integer, Text, String, ForeignKey,
-                        DateTime, PickleType, Table)
+from mongoengine import (connect, Document, StringField, DateTimeField,
+    URLField, BooleanField)
 
-Base = declarative_base()
+connect('pravda')
 
-    
-class Item(Base):
-    __tablename__ = 'item'
 
-    sqlite_autoincrement = True
-    id = Column(Integer, primary_key=True)
+class Post(Document):
+    title = StringField(required=True)
+    content = StringField(required=True)
+    url = URLField()
+    published_date = DateTimeField()
+    grabbed_date = DateTimeField(default=datetime.datetime.now)
 
-    title = Column(String(160))
-    author = Column(String(160))
-    description = Column(String(255))
-    url = Column(String(160))
-
-    last_update = Column(DateTime, default=datetime.datetime.now)
-
+    title_red = BooleanField()
+    title_cappitalized = BooleanField()
+    title_bold = BooleanField()
+    has_photo = BooleanField()
+    has_video = BooleanField()
