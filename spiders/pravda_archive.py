@@ -5,7 +5,7 @@ from spiders.base import BaseHubSpider
 from grab.spider import Task
 from grab.error import DataNotFound
 
-from .models import Post
+from models import Post
 
 
 class PravdaArchiveSpider(BaseHubSpider):
@@ -23,10 +23,10 @@ class PravdaArchiveSpider(BaseHubSpider):
         print '=' * 20, 'Last day processed', grab_date + datetime.timedelta(1)
 
     def task_archive_day(self, grab, task):
-        dd = grab.xpath_list('//dl[@class="news4"]/dd')[0]
-        header_css_classes = dd.attrib.get('class', '').split(' ')
-        first_url = dd.find('a').get('href')
-        yield Task('news', url=first_url, header_css_classes=header_css_classes)
+        for dd in grab.xpath_list('//dl[@class="news4"]/dd'):
+            header_css_classes = dd.attrib.get('class', '').split(' ')
+            url = dd.find('a').get('href')
+            yield Task('news', url=url, header_css_classes=header_css_classes)
 
     def task_news(self, grab, task):
         title = grab.xpath_text('//h1[@class="title"]')
@@ -40,6 +40,18 @@ class PravdaArchiveSpider(BaseHubSpider):
 
         tags = grab.xpath_list('//div[@class="text"]/p[@class="tags"]/a')
         print ", ".join([t.text_content() for t in tags])
+
+        links = grab.xpath_list('//div[@class="text"]/p/a')
+        links = [l.get('href') for l in links
+                if not '/tags/tag_' in l.get('href')
+            ]
+        print "Links: "
+        print "\n".join(links)
+
+        images = grab.xpath_list('//div[@class="text"]//img')
+        images = [i.get('src') for i in images]
+        print 'Images'
+        print "\n".join(images)
 
         published_date = grab.xpath_text('//span[@class="dt2"]')
         print published_date
@@ -60,26 +72,36 @@ class PravdaArchiveSpider(BaseHubSpider):
             comments_number = None
         print "Comments:", comments_number
 
-        has_photo = None
+        try:
+            additional_parameters = grab.xpath_text(
+                '//div[@class="rpad"]/span[@class="stext"]/b'
+            ).split(', ')
+        except (DataNotFound):
+            additional_parameters = []
+
+        has_photo = u'фото' in additional_parameters
         print 'Has photo:', has_photo
 
-        try:
-            has_video = bool(grab.xpath_text(grab.xpath_text('//div[@class="rpad"]/span[@class="stext"]/b')))
-        except (DataNotFound):
-            has_video = None
+        has_video = u'видео' in additional_parameters
         print 'Has video:', has_video
+
+        updated = (u'обновлено' in additional_parameters
+            or u'дополнено' in additional_parameters)
+        print 'Updated:', updated
 
         Post.objects.create(
             title=title,
             content=content,
             url=url,
             tags=tags,
+            links=links,
+            images=images,
             published_date_str=published_date,
             title_red=title_red,
             title_bold=title_bold,
             title_uppercased=title_uppercased,
             has_video=has_video,
             comments_number=comments_number,
+            updated=updated
         )
-        print '=' * 20, 'Items total', self.items_total
-        grab.sleep(2, 10)
+        grab.sleep(2, 6)
